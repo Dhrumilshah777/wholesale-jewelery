@@ -23,7 +23,7 @@ export type PriceBreakup = {
 /** Gold rate per gram (₹) by purity */
 export const goldRatePerGram: Record<GoldPurity, number> = {
   "14kt": 5_450,
-  "18kt": 20,
+  "18kt": 2,
   "22kt": 20,
 };
 
