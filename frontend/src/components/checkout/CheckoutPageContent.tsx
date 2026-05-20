@@ -4,11 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { useCart } from "@/components/cart/CartProvider";
 import {
   createRazorpayCheckoutOrder,
   fetchCheckoutAddresses,
+  pollRazorpayCheckoutStatus,
   verifyRazorpayPayment,
   type CheckoutAddress,
   type SavedCheckoutAddress,
@@ -39,6 +40,45 @@ export default function CheckoutPageContent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [razorpayReady, setRazorpayReady] = useState(false);
+  const [awaitingUpiPayment, setAwaitingUpiPayment] = useState(false);
+  const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopStatusPolling = () => {
+    if (statusPollRef.current) {
+      clearInterval(statusPollRef.current);
+      statusPollRef.current = null;
+    }
+    setAwaitingUpiPayment(false);
+  };
+
+  useEffect(() => () => stopStatusPolling(), []);
+
+  const completeCheckout = async (orderId: string) => {
+    stopStatusPolling();
+    await refreshCart();
+    router.replace(`/account/my-orders/${orderId}`);
+  };
+
+  const startStatusPolling = (razorpayOrderId: string) => {
+    stopStatusPolling();
+    setAwaitingUpiPayment(true);
+
+    const check = async () => {
+      try {
+        const result = await pollRazorpayCheckoutStatus(razorpayOrderId);
+        if (result.status === "completed" && "order" in result) {
+          await completeCheckout(result.order.id);
+        }
+      } catch {
+        // Keep polling until modal dismissed or payment completes
+      }
+    };
+
+    void check();
+    statusPollRef.current = setInterval(() => {
+      void check();
+    }, 3000);
+  };
 
   const [savedAddresses, setSavedAddresses] = useState<SavedCheckoutAddress[]>([]);
   const [addressesLoading, setAddressesLoading] = useState(true);
@@ -161,15 +201,16 @@ export default function CheckoutPageContent() {
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
             });
-            await refreshCart();
-            router.replace(`/account/my-orders/${order.id}`);
+            await completeCheckout(order.id);
           } catch (err) {
             setError(err instanceof Error ? err.message : "Payment verification failed");
             setSubmitting(false);
+            stopStatusPolling();
           }
         },
         modal: {
           ondismiss: () => {
+            stopStatusPolling();
             setSubmitting(false);
           },
         },
@@ -178,8 +219,10 @@ export default function CheckoutPageContent() {
       rzp.on("payment.failed", (response) => {
         setError(response.error?.description ?? "Payment failed");
         setSubmitting(false);
+        stopStatusPolling();
       });
 
+      startStatusPolling(paymentOrder.razorpayOrderId);
       rzp.open();
     } catch (err) {
       if (err instanceof Error && err.message === "LOGIN_REQUIRED") {
@@ -446,6 +489,13 @@ export default function CheckoutPageContent() {
           </div>
 
           {error ? <p className="mt-4 text-sm font-light text-red-600">{error}</p> : null}
+
+          {awaitingUpiPayment ? (
+            <p className="mt-4 text-sm font-light text-emerald-800">
+              Paid with UPI QR? Keep this tab open — we will confirm your order
+              automatically within a few seconds.
+            </p>
+          ) : null}
 
           <button
             type="submit"

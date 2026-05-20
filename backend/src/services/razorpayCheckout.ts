@@ -2,6 +2,7 @@ import { prisma } from "../lib/prisma.js";
 import {
   createRazorpayOrder,
   fetchRazorpayOrder,
+  fetchRazorpayOrderPayments,
   getRazorpayKeyId,
   verifyRazorpayPaymentSignature,
   verifyRazorpayWebhookSignature,
@@ -171,6 +172,78 @@ export async function verifyRazorpayCheckoutAndPlaceOrder(
   });
 
   return result;
+}
+
+async function loadCompletedCheckoutOrder(userId: string, shopOrderId: string) {
+  const order = await prisma.order.findFirst({
+    where: { id: shopOrderId, userId },
+    include: {
+      items: { include: { product: true } },
+      deliveryAddress: true,
+      statusEvents: { orderBy: { eventAt: "asc" } },
+    },
+  });
+  if (!order) return null;
+  const { mapOrderToDto } = await import("../lib/orderMapper.js");
+  return mapOrderToDto(order);
+}
+
+/** For UPI QR: browser handler may not run; poll this after payment. */
+export async function syncRazorpayCheckoutPayment(
+  userId: string,
+  razorpayOrderId: string,
+) {
+  const session = await prisma.checkoutPayment.findUnique({
+    where: { razorpayOrderId },
+  });
+
+  if (!session || session.userId !== userId) {
+    return { status: "not_found" as const };
+  }
+
+  if (session.status === "completed" && session.shopOrderId) {
+    const order = await loadCompletedCheckoutOrder(userId, session.shopOrderId);
+    if (order) {
+      return { status: "completed" as const, order };
+    }
+  }
+
+  if (session.expiresAt < new Date()) {
+    return { status: "expired" as const };
+  }
+
+  const payments = await fetchRazorpayOrderPayments(razorpayOrderId);
+  const captured = payments.find((payment) => payment.status === "captured");
+  if (!captured) {
+    return { status: "pending" as const };
+  }
+
+  const razorpayOrder = await fetchRazorpayOrder(razorpayOrderId);
+  if (razorpayOrder.amount !== session.amountPaise) {
+    return { error: "PAYMENT_AMOUNT_MISMATCH" as const };
+  }
+
+  const result = await placeOrderForCheckoutSession(
+    userId,
+    session.addressJson,
+    "Razorpay",
+    captured.id,
+  );
+
+  if ("error" in result) {
+    return result;
+  }
+
+  if (!("order" in result)) {
+    return { error: "ORDER_FAILED" as const };
+  }
+
+  await prisma.checkoutPayment.update({
+    where: { id: session.id },
+    data: { status: "completed", shopOrderId: result.order.id },
+  });
+
+  return { status: "completed" as const, order: result.order };
 }
 
 export async function handleRazorpayWebhook(rawBody: string, signature: string) {

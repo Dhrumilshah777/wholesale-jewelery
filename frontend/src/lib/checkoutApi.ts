@@ -65,3 +65,14 @@ export async function verifyRazorpayPayment(input: {
   });
   return data.order;
 }
+
+type CheckoutStatusResponse =
+  | { status: "pending" | "expired" | "not_found" }
+  | { status: "completed"; order: AccountOrder };
+
+export async function pollRazorpayCheckoutStatus(razorpayOrderId: string) {
+  const params = new URLSearchParams({ razorpay_order_id: razorpayOrderId });
+  return customerFetch<CheckoutStatusResponse>(
+    `/api/checkout/razorpay/status?${params.toString()}`,
+  );
+}
