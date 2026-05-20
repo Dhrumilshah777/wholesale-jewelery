@@ -4,7 +4,6 @@ import { listSavedAddressesForUser } from "../services/addresses.js";
 import { parseCheckoutAddressPayload } from "../services/checkoutAddresses.js";
 import {
   createRazorpayCheckout,
-  syncRazorpayCheckoutPayment,
   verifyRazorpayCheckoutAndPlaceOrder,
 } from "../services/razorpayCheckout.js";
 
@@ -62,45 +61,6 @@ checkoutRouter.post("/razorpay/create-order", requireCustomer, async (req: Custo
     res.status(500).json({
       error: error instanceof Error ? error.message : "Failed to start payment",
     });
-  }
-});
-
-checkoutRouter.get("/razorpay/status", requireCustomer, async (req: CustomerRequest, res) => {
-  const razorpayOrderId = req.query.razorpay_order_id;
-  if (!razorpayOrderId || typeof razorpayOrderId !== "string") {
-    res.status(400).json({ error: "razorpay_order_id is required" });
-    return;
-  }
-
-  try {
-    const result = await syncRazorpayCheckoutPayment(
-      req.customer!.userId,
-      razorpayOrderId,
-    );
-
-    if ("error" in result && result.error) {
-      const message =
-        result.error === "PAYMENT_AMOUNT_MISMATCH"
-          ? "Payment amount does not match your cart"
-          : "Could not complete order";
-      res.status(400).json({ error: message, code: result.error });
-      return;
-    }
-
-    if ("status" in result && result.status === "completed" && "order" in result) {
-      res.json({ status: "completed", order: result.order });
-      return;
-    }
-
-    if ("status" in result) {
-      res.json({ status: result.status });
-      return;
-    }
-
-    res.status(400).json({ error: "Could not check payment status" });
-  } catch (error) {
-    console.error("GET /api/checkout/razorpay/status failed:", error);
-    res.status(500).json({ error: "Failed to check payment status" });
   }
 });
 

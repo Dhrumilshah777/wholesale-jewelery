@@ -87,6 +87,22 @@ export function purityFromDb(purity: string): GoldPurity {
   return map[purity] ?? "18kt";
 }
 
+export function purityToDb(purity: GoldPurity | string): "KT_14" | "KT_18" | "KT_22" {
+  const normalized = purity.toLowerCase().replace(/\s/g, "");
+  if (normalized === "14kt" || normalized === "kt_14") return "KT_14";
+  if (normalized === "22kt" || normalized === "kt_22") return "KT_22";
+  return "KT_18";
+}
+
+export function metalToDb(
+  metal: string,
+): "YELLOW_GOLD" | "ROSE_GOLD" | "WHITE_GOLD" {
+  const key = metal.toUpperCase().replace(/\s+/g, "_");
+  if (key === "ROSE_GOLD") return "ROSE_GOLD";
+  if (key === "WHITE_GOLD") return "WHITE_GOLD";
+  return "YELLOW_GOLD";
+}
+
 export function makingChargeFromDb(
   kind: "PERCENTAGE" | "FIXED",
   value: { toString(): string },

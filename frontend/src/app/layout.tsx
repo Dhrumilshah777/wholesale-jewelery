@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Footer from "@/components/Footer";
+import ConditionalFooter from "@/components/ConditionalFooter";
 import Navbar from "@/components/Navbar";
 import Providers from "@/components/Providers";
 import "@fortawesome/fontawesome-free/css/all.min.css";
@@ -35,7 +35,7 @@ export default function RootLayout({
         <Providers>
           <Navbar />
           <main className="flex flex-1 flex-col">{children}</main>
-          <Footer />
+          <ConditionalFooter />
         </Providers>
       </body>
     </html>

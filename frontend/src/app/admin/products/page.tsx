@@ -6,7 +6,7 @@ export default function AdminProductsPage() {
     <>
       <AdminPageHeader
         title="Products"
-        description="Catalog products synced from the database."
+        description="Add, edit, or deactivate products in your catalog."
       />
       <AdminProductsTable />
     </>

@@ -375,19 +375,82 @@ export async function updateAdminOrderStatus(orderId: string, status: string) {
   };
 }
 
+export type AdminProduct = {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  image: string;
+  alt: string;
+  price: string;
+  sku: string;
+  weight: string;
+  weightGrams: number;
+  metal: string;
+  metalCode: string;
+  purity: string;
+  purityCode: string;
+  description: string;
+  gallery: string[];
+  ringSize?: string;
+  makingCharge: { type: "percentage" | "fixed"; value: number };
+  makingChargeKind: string;
+  makingChargeValue: number;
+  gstPercent: number;
+  pricePaise: number;
+  isActive: boolean;
+};
+
+export type AdminProductPayload = {
+  slug: string;
+  name: string;
+  category: string;
+  image: string;
+  alt: string;
+  metal: string;
+  purity: string;
+  weightGrams: number;
+  sku: string;
+  ringSize?: string | null;
+  description: string;
+  gallery?: string[];
+  makingChargeKind: string;
+  makingChargeValue: number;
+  gstPercent: number;
+  isActive: boolean;
+};
+
 export async function fetchAdminProducts() {
-  const data = await adminFetch<{
-    products: {
-      id: string;
-      slug: string;
-      name: string;
-      category: string;
-      price: string;
-      sku: string;
-      isActive: boolean;
-    }[];
-  }>("/api/admin/products");
+  const data = await adminFetch<{ products: AdminProduct[] }>("/api/admin/products");
   return data.products;
+}
+
+export async function fetchAdminProductById(id: string) {
+  const data = await adminFetch<{ product: AdminProduct }>(`/api/admin/products/${id}`);
+  return data.product;
+}
+
+export async function createAdminProduct(payload: AdminProductPayload) {
+  const data = await adminFetch<{ product: AdminProduct }>("/api/admin/products", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return data.product;
+}
+
+export async function updateAdminProduct(id: string, payload: Partial<AdminProductPayload>) {
+  const data = await adminFetch<{ product: AdminProduct }>(`/api/admin/products/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+  return data.product;
+}
+
+export async function deleteAdminProduct(id: string) {
+  const data = await adminFetch<{ product: AdminProduct }>(`/api/admin/products/${id}`, {
+    method: "DELETE",
+  });
+  return data.product;
 }
 
 export async function fetchAdminCustomers() {

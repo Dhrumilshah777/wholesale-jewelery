@@ -55,32 +55,6 @@ export async function createRazorpayOrder(input: {
   return data;
 }
 
-export type RazorpayPaymentSummary = {
-  id: string;
-  status: string;
-  amount: number;
-};
-
-export async function fetchRazorpayOrderPayments(
-  orderId: string,
-): Promise<RazorpayPaymentSummary[]> {
-  const res = await fetch(
-    `https://api.razorpay.com/v1/orders/${encodeURIComponent(orderId)}/payments`,
-    { headers: { Authorization: getAuthHeader() } },
-  );
-
-  const data = (await res.json()) as {
-    items?: RazorpayPaymentSummary[];
-    error?: { description?: string };
-  };
-
-  if (!res.ok) {
-    throw new Error(data.error?.description ?? "Failed to fetch Razorpay payments");
-  }
-
-  return data.items ?? [];
-}
-
 export async function fetchRazorpayOrder(orderId: string): Promise<RazorpayOrderResponse> {
   const res = await fetch(`https://api.razorpay.com/v1/orders/${orderId}`, {
     headers: { Authorization: getAuthHeader() },
